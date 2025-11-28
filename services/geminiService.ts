@@ -3,7 +3,11 @@ import { AspectRatio, ImageResolution } from "../types";
 
 // Helper to ensure API Key selection
 const ensureApiKey = async (): Promise<void> => {
-  // If we have an environment variable API key, we don't need the prompt
+  // Check for VITE_API_KEY (Standard Vite/Vercel)
+  // @ts-ignore
+  if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_KEY) return;
+  
+  // Check for standard API_KEY (Node/Legacy)
   if (process.env.API_KEY) return;
 
   // Fallback to Google AI Studio prompt if available (dev environment)
@@ -31,13 +35,35 @@ export const generateCinematicImage = async (
     let ai: GoogleGenAI;
 
     if (userApiKey) {
-        // Use user provided key
+        // 1. Priority: User provided key from UI
         ai = new GoogleGenAI({ apiKey: userApiKey });
     } else {
-        // Fallback to system key checks
-        await ensureApiKey();
-        const systemKey = process.env.API_KEY;
-        if (!systemKey) throw new Error("API Key configuration failed.");
+        // 2. Fallback: System/Environment keys
+        // Try getting key from Vite env (Vercel) or Node env
+        let systemKey = "";
+        
+        // @ts-ignore
+        if (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_KEY) {
+            // @ts-ignore
+            systemKey = import.meta.env.VITE_API_KEY;
+        } else if (process.env.API_KEY) {
+            systemKey = process.env.API_KEY;
+        } else if (window.aistudio) {
+            // If in AI Studio, ensure key is selected then proceed (key is injected internally by SDK/Environment usually, 
+            // but for @google/genai we need to pass it if we have it, or rely on the environment shim).
+            // Actually, locally in AI Studio we usually need to fetch it or rely on the proxy. 
+            // For this specific code structure, let's assume if window.aistudio exists, we might need to handle it differently 
+            // or prompts were handled by ensureApiKey.
+            // But strict @google/genai usage requires passing the key.
+            await ensureApiKey();
+            // In AI Studio via IDX, process.env.API_KEY is often populated after selection.
+            systemKey = process.env.API_KEY || ""; 
+        }
+
+        if (!systemKey) {
+             throw new Error("No API Key provided. Please enter your API Key in the top-left 'API CONFIG' section.");
+        }
+        
         ai = new GoogleGenAI({ apiKey: systemKey });
     }
     
