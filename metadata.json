@@ -1,0 +1,5 @@
+{
+  "name": "CineGen Director Deck",
+  "description": "A professional AI director console for generating cinematic scenes with precise control over aspect ratio and resolution using Gemini 3 Pro.",
+  "requestFramePermissions": []
+}
